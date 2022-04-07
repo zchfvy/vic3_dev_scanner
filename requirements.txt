@@ -1,0 +1,10 @@
+beautifulsoup4
+requests
+appdirs
+Pillow
+pytesseract
+fuzzysearch
+colorama
+markdownify
+markdown
+ezocr
