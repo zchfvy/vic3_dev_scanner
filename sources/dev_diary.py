@@ -13,7 +13,7 @@ from util import get_cache_dir, get_page_cached, cache_result
 logging.basicConfig()
 log = logging.getLogger('dev_diary')
 
-log.level = logging.DEBUG
+log.level = logging.INFO
 
 FORUMS_BASE = "https://forum.paradoxplaza.com"
 DD_INDEX = "/forum/threads/victoria-3-dev-diary-index.1481698/"
@@ -27,6 +27,13 @@ def grab_all():
     results = []
     for m in matches:
         results.extend(grab_batch(m))
+
+    mr_re = re.compile(
+            "https://forum.paradoxplaza.com/forum/threads/victoria-3-monthly-update-[^/]+/")
+    matches = re.findall(mr_re, index_text)
+    for m in matches:
+        results.append(grab_monthly(m))
+
     return results
 
 def grab_batch(url):
@@ -46,6 +53,29 @@ def grab_batch(url):
 
     dev_posts.insert(0, diary)
     return dev_posts
+
+
+def grab_monthly(url):
+    dd_body = get_page_cached(url)
+    soup = BeautifulSoup(dd_body, features="html.parser")
+
+    title = str(soup.find('title').get_text().strip())
+    result = []
+
+    log.info(f"Capturing Monthly Roundup '{title}'")
+
+    bbwrappers = soup.find_all(class_="bbWrapper")
+    mr_post = bbwrappers[0]
+    contents = mr_post.encode_contents()
+
+    attachments = soup.find_all(class_="attachmentList")
+    for li in attachments[0].find_all('li'):
+        im_tag = li.find('img')
+        im_src = im_tag.attrs['src']
+        full_im_src = re.sub('/thumbnail/', '/', im_src)
+        contents = contents + bytes(f"""\n<img src="{full_im_src}" />\n""", 'utf-8')
+
+    return DevMonthlyRoundup(title, contents, url)
 
 
 def load_dev_posts(url, linked_dd):
@@ -107,7 +137,13 @@ def standard_substitutions(diary_name, input_text):
             continue
         
         src = util.download_image(url, f"./images/{diary_name}/")
-        ocr = util.ocr_image(src)
+
+        # TODO : animated gifs don't work, right now we asume anything ending in
+        #        .gif is animated
+        if src.endswith('.gif'):
+            ocr = "UNAVAILABLE FOR ANIMATED GIF"
+        else:
+            ocr = util.ocr_image(src)
 
         txt = txt.replace(im.group(0),
                 f"""![{name}]({urllib.parse.quote(src)} "{alt_text}")\n\n<font size=1>OCR: {ocr}</font>""")
@@ -122,7 +158,11 @@ class DevDiary(DevEntry):
 
     def as_markdown(self):
         return f"#[{self.title}](self.source)\n" + self.body_md
-        
+
+
+class DevMonthlyRoundup(DevDiary):
+    pass  # These are functionally identical to dev diaries
+
 
 class DevDiaryComment(DevEntry):
     def __init__(self, linked_dd, body_html, author, source):

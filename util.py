@@ -76,7 +76,7 @@ reader = easyocr.Reader(['en']) # this needs to run only once to load the model 
 
 @cache_result
 def _ocr_image(path):
-    import sys
+    log.debug(f"Running OCR on image {path}")
     result = reader.readtext(path)
     return result
 
