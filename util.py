@@ -100,6 +100,9 @@ def download_image(url, output_dir):
     if not os.path.exists(im_path):
         log.debug(f"Downloading image {url}")
         im_data = requests.get(url, stream=True)
+        if im_data.status_code != 200:
+            del im_data
+            return None
         with open(im_path, 'wb') as of:
             shutil.copyfileobj(im_data.raw, of)
         del im_data

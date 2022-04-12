@@ -140,7 +140,9 @@ def standard_substitutions(diary_name, input_text):
 
         # TODO : animated gifs don't work, right now we asume anything ending in
         #        .gif is animated
-        if src.endswith('.gif'):
+        if src is None:
+            continue
+        elif src.endswith('.gif'):
             ocr = "UNAVAILABLE FOR ANIMATED GIF"
         else:
             ocr = util.ocr_image(src)
