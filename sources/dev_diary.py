@@ -136,19 +136,15 @@ def standard_substitutions(diary_name, input_text):
             txt = txt.replace(im.group(0), "")
             continue
         
-        src = util.download_image(url, f"./images/{diary_name}/")
+        src, thumb_src, ocr = util.download_image(url, diary_name)
 
-        # TODO : animated gifs don't work, right now we asume anything ending in
-        #        .gif is animated
         if src is None:
-            continue
-        elif src.endswith('.gif'):
-            ocr = "UNAVAILABLE FOR ANIMATED GIF"
-        else:
-            ocr = util.ocr_image(src)
+            continue  # Guess we can't do anythign if it failed
 
-        txt = txt.replace(im.group(0),
-                f"""![{name}]({urllib.parse.quote(src)} "{alt_text}")\n\n<font size=1>OCR: {ocr}</font>""")
+        img_tag = f"""![{name}]({urllib.parse.quote(thumb_src)} "{alt_text}")"""
+        link_tag = f"""[{img_tag}]({urllib.parse.quote(src)})"""
+        ocr_text = f"""<font size=1>OCR: {ocr}</font>"""
+        txt = txt.replace(im.group(0), link_tag + "\n\n" + ocr_text)
 
     return txt
 

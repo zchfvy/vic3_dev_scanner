@@ -1,6 +1,6 @@
 
 build:
-	python ./main.py > index.html
+	python ./main.py
 
 clean:
 	rm -rf images

@@ -1,11 +1,19 @@
-from util import get_cache_dir, get_page_cached, cache_result
+import os
 
 import sources.dev_diary as dd
 import markdown
 
+from util import get_output_dir
+
 all_items = dd.grab_all()
 
-print("""
+out_fname = os.path.join(get_output_dir(), 'index.html')
+out_file = open(out_fname, 'w')
+
+def writeout(stri):
+    print(stri, file=out_file)
+
+writeout("""
 <!DOCTYPE html> 
 <html>
  
@@ -35,10 +43,10 @@ print("""
 for item in all_items:
     md = item.as_markdown()
     classname = item.__class__.__name__.lower()
-    print(f"""<div class="dev-item {classname}">""")
-    print(markdown.markdown(md))
-    print(r"</div>")
-    print("\n\n")
+    writeout(f"""<div class="dev-item {classname}">""")
+    writeout(markdown.markdown(md))
+    writeout(r"</div>")
+    writeout("\n\n")
 
 
-print("</body></html>")
+writeout("</body></html>")
