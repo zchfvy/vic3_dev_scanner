@@ -8,10 +8,10 @@ clean:
 	rm index.html
 
 publish_gh: build
-	cp index.html /tmp/v3_index.html
 	git checkout gh_pages
-	cp /tmp/v3_index.html index.html
-	git add index.html
+	cp -r ./output/* ./
+	git add index.html images thumbs
+	git add 
 	git commit -m "Update gh_pages"
 	git push
 	git checkout master
