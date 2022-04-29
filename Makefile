@@ -2,10 +2,20 @@
 build:
 	python ./main.py
 
-clean:
-	rm -rf images
+clean: clean_html
+
+clean_all: clean_cache clean_output
+
+# Misc actions
+
+clean_html:
+	rm -rf .cache/web
+
+clean_cache:
 	rm -rf .cache
-	rm index.html
+
+clean_output:
+	rm -rf output
 
 publish_gh: build
 	git checkout gh_pages
