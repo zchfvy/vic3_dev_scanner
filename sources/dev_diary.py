@@ -1,6 +1,7 @@
 import re
 import logging
 import urllib.parse
+import dateparser
 
 from markdownify import markdownify
 import bs4
@@ -40,15 +41,17 @@ def grab_batch(url):
     dd_body = get_page_cached(url)
     soup = BeautifulSoup(dd_body, features="html.parser")
 
-    title = str(soup.find('title').get_text().strip())
+    title = str(soup.find('title').get_text().split('|')[0].strip())
     result = []
 
     log.info(f"Capturing Dev Diary '{title}'")
 
+    u_dt = soup.find_all(class_="u-dt")[0]
+    date = dateparser.parse(u_dt.attrs['datetime'])
     bbwrappers = soup.find_all(class_="bbWrapper")
     dd_post = bbwrappers[0]
     contents = dd_post.encode_contents()
-    diary = DevDiary(title, contents, url)
+    diary = DevDiary(title, contents, url, date)
     dev_posts = load_dev_posts(url, diary)
 
     dev_posts.insert(0, diary)
@@ -67,6 +70,8 @@ def grab_monthly(url):
     bbwrappers = soup.find_all(class_="bbWrapper")
     mr_post = bbwrappers[0]
     contents = mr_post.encode_contents()
+    u_dt = soup.find_all(class_="u-dt")[0]
+    date = dateparser.parse(u_dt.attrs['datetime'])
 
     attachments = soup.find_all(class_="attachmentList")
     for li in attachments[0].find_all('li'):
@@ -75,31 +80,25 @@ def grab_monthly(url):
         full_im_src = re.sub('/thumbnail/', '/', im_src)
         contents = contents + bytes(f"""\n<img src="{full_im_src}" />\n""", 'utf-8')
 
-    return DevMonthlyRoundup(title, contents, url)
+    return DevMonthlyRoundup(title, contents, url, date)
 
 
 def load_dev_posts(url, linked_dd):
     posts_url = url + '?prdxDevPosts=1'
+    if linked_dd.title == "Dev Diary #43 - The American Civil War":
+        ofaloafs_post = _load_single_post_special(28226531)
+        return [ofaloafs_post]
     return _recursively_load_dev_posts(posts_url, linked_dd)
 
 def _recursively_load_dev_posts(url, linked_dd):
     posts_body = get_page_cached(url)
     soup = BeautifulSoup(posts_body, features="html.parser")
 
-    messages = soup.find_all('div', class_="message-userContent")
+    messages = soup.find_all('div', class_="message-cell--main")
 
     result = []
     for post in messages:
-        author = post.attrs['data-lb-caption-desc']
-        author = re.sub(r"(\S+)\s.*",
-                 r"\1",
-                 post.attrs['data-lb-caption-desc'])
-        source = re.sub(r"post-([0-9]+)",
-                FORUMS_BASE + r"/forum/goto/post?id=\1",
-                post.attrs['data-lb-id'])
-        dev_post = post.find(class_='bbWrapper')
-        contents = dev_post.encode_contents()
-        result.append(DevDiaryComment(linked_dd, contents, author, source))
+        result.append(_parse_post(post, linked_dd))
 
     next_page = soup.find(rel='next')
     if next_page:
@@ -109,6 +108,30 @@ def _recursively_load_dev_posts(url, linked_dd):
         result.extend(next_res)
 
     return result
+
+
+def _load_single_post_special(post_num):
+    url = f"https://forum.paradoxplaza.com/forum/goto/post?id={post_num}"
+    posts_body = get_page_cached(url)
+    soup = BeautifulSoup(posts_body, features="html.parser")
+    wrapped = soup.find_all('article', id=f"post-{post_num}", class_="message-threadStarterPost")
+    messages = wrapped.find_all('div', class_="message-userContent")
+
+
+def _parse_post(post, linked_dd):
+    u_dt = post.find_all(class_="u-dt")[0]
+    date = dateparser.parse(u_dt.attrs['datetime'])
+    post = post.find(class_="message-userContent")
+    author = post.attrs['data-lb-caption-desc']
+    author = re.sub(r"(\S+)\s.*",
+             r"\1",
+             post.attrs['data-lb-caption-desc'])
+    source = re.sub(r"post-([0-9]+)",
+            FORUMS_BASE + r"/forum/goto/post?id=\1",
+            post.attrs['data-lb-id'])
+    dev_post = post.find(class_='bbWrapper')
+    contents = dev_post.encode_contents()
+    return DevDiaryComment(linked_dd, contents, author, source, date)
 
 
 def standard_substitutions(diary_name, input_text):
@@ -149,10 +172,11 @@ def standard_substitutions(diary_name, input_text):
     return txt
 
 class DevDiary(DevEntry):
-    def __init__(self, title, body_html, source):
+    def __init__(self, title, body_html, source, date):
         self.title = title
         self.source = source
         self.body_md = standard_substitutions(self.title, markdownify(body_html))
+        self.date = date
 
     def as_markdown(self):
         return f"#[{self.title}](self.source)\n" + self.body_md
@@ -163,12 +187,13 @@ class DevMonthlyRoundup(DevDiary):
 
 
 class DevDiaryComment(DevEntry):
-    def __init__(self, linked_dd, body_html, author, source):
+    def __init__(self, linked_dd, body_html, author, source, date):
         self.linked_dd = linked_dd
         self.body_md = standard_substitutions(self.linked_dd.title, markdownify(body_html))
         self.body_md = re.sub("Click to expand...", "", self.body_md)
         self.author = author
         self.source = source
+        self.date = date
 
     def as_markdown(self):
         return f"""####[{self.author} reqplied to {self.linked_dd.title}]({self.source})\n""" + self.body_md

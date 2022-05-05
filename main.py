@@ -44,6 +44,7 @@ for item in all_items:
     md = item.as_markdown()
     classname = item.__class__.__name__.lower()
     writeout(f"""<div class="dev-item {classname}">""")
+    writeout(item.date)
     writeout(markdown.markdown(md))
     writeout(r"</div>")
     writeout("\n\n")
