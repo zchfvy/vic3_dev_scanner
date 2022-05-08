@@ -87,7 +87,7 @@ def load_dev_posts(url, linked_dd):
     posts_url = url + '?prdxDevPosts=1'
     if linked_dd.title == "Dev Diary #43 - The American Civil War":
         ofaloafs_post = _load_single_post_special(28226531)
-        return [ofaloafs_post]
+        return [_parse_post(ofaloafs_post, linked_dd)]
     return _recursively_load_dev_posts(posts_url, linked_dd)
 
 def _recursively_load_dev_posts(url, linked_dd):
@@ -114,8 +114,9 @@ def _load_single_post_special(post_num):
     url = f"https://forum.paradoxplaza.com/forum/goto/post?id={post_num}"
     posts_body = get_page_cached(url)
     soup = BeautifulSoup(posts_body, features="html.parser")
-    wrapped = soup.find_all('article', id=f"post-{post_num}", class_="message-threadStarterPost")
-    messages = wrapped.find_all('div', class_="message-userContent")
+    wrapped = soup.find('article', attrs={"data-content": f"post-{post_num}"}, class_="message-threadStarterPost")
+    message = wrapped.find('div', class_="message-cell--main")
+    return message
 
 
 def _parse_post(post, linked_dd):
@@ -197,3 +198,16 @@ class DevDiaryComment(DevEntry):
 
     def as_markdown(self):
         return f"""####[{self.author} reqplied to {self.linked_dd.title}]({self.source})\n""" + self.body_md
+
+
+class NonDiaryDevComment(DevEntry):
+    def __init__(self, thread_title, body_html, author, source, date):
+        self.thread_title = thread_tital
+        self.body_md = standard_substitutions(self.linked_dd.title, markdownify(body_html))
+        self.body_md = re.sub("Click to expand...", "", self.body_md)
+        self.author = author
+        self.source = source
+        self.date = date
+
+    def as_markdown(self):
+        return f"""####[{self.author} commented on {self.thread_title}]({self.source})\n""" + self.body_md
