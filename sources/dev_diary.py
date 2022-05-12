@@ -18,6 +18,7 @@ log.level = logging.INFO
 
 FORUMS_BASE = "https://forum.paradoxplaza.com"
 DD_INDEX = "/forum/threads/victoria-3-dev-diary-index.1481698/"
+ALL_DEV_POSTS = "/forum/forums/victoria-3.1095/?prdxPsDevPostsOnly=1"
 
 def grab_all():
     index_text = get_page_cached(FORUMS_BASE + DD_INDEX)
@@ -34,6 +35,26 @@ def grab_all():
     matches = re.findall(mr_re, index_text)
     for m in matches:
         results.append(grab_monthly(m))
+
+
+    # Now grab non-DD comments
+    # TODO, turen the False to True
+    all_dev_posts_url = FORUMS_BASE + ALL_DEV_POSTS
+    for i, soup in enumerate(_paginate_through(all_dev_posts_url, False)):
+        log.info(f"Capturing dev posts page {i}")
+        thread_list = soup.find(class_='js-threadList')
+        threads = thread_list.find_all(class_='structItem--thread')
+        for thread in threads:
+            thread_name = thread.find(class_='structItem-title').get_text().strip()
+            thread_url = thread.find(class_='structItem-startDate').find('a').attrs['href']
+            location = FORUMS_BASE + thread_url
+            # Really bad filtering omg
+            if "Dev Diary #" in thread_name:
+                continue
+            log.info(f"Capturing thread {thread_name} {thread_url}")
+            dev_posts = load_dev_posts(location, PdxThread(thread_name, thread_url), False)
+            results.extend(dev_posts)
+
 
     return results
 
@@ -52,7 +73,7 @@ def grab_batch(url):
     dd_post = bbwrappers[0]
     contents = dd_post.encode_contents()
     diary = DevDiary(title, contents, url, date)
-    dev_posts = load_dev_posts(url, diary)
+    dev_posts = load_dev_posts(url, diary, True)
 
     dev_posts.insert(0, diary)
     return dev_posts
@@ -83,31 +104,36 @@ def grab_monthly(url):
     return DevMonthlyRoundup(title, contents, url, date)
 
 
-def load_dev_posts(url, linked_dd):
+def load_dev_posts(url, linked_item, dev_diary=True):
     posts_url = url + '?prdxDevPosts=1'
-    if linked_dd.title == "Dev Diary #43 - The American Civil War":
-        ofaloafs_post = _load_single_post_special(28226531)
-        return [_parse_post(ofaloafs_post, linked_dd)]
-    return _recursively_load_dev_posts(posts_url, linked_dd)
 
-def _recursively_load_dev_posts(url, linked_dd):
-    posts_body = get_page_cached(url)
-    soup = BeautifulSoup(posts_body, features="html.parser")
+    if dev_diary:
+        if linked_item.title == "Dev Diary #43 - The American Civil War":
+            ofaloafs_post = _load_single_post_special(28226531)
+            return [_parse_post(ofaloafs_post, linked_item, True)]
 
-    messages = soup.find_all('div', class_="message-cell--main")
-
-    result = []
-    for post in messages:
-        result.append(_parse_post(post, linked_dd))
-
-    next_page = soup.find(rel='next')
-    if next_page:
-        next_res = _recursively_load_dev_posts(
-                FORUMS_BASE + next_page.attrs['href'],
-                linked_dd)
-        result.extend(next_res)
+    for soup in _paginate_through(posts_url):
+        messages = soup.find_all('div', class_="message-cell--main")
+        result = []
+        for post in messages:
+            result.append(_parse_post(post, linked_item, dev_diary))
 
     return result
+
+
+def _paginate_through(url, force_refresh=False):
+    while True:
+        if url:
+            posts_body = get_page_cached(url, force_refresh)
+            soup = BeautifulSoup(posts_body, features="html.parser")
+            yield soup
+            next_page = soup.find(rel='next')
+            if next_page:
+                url = FORUMS_BASE + next_page.attrs['href']
+            else:
+                url = None
+        else:
+            break
 
 
 def _load_single_post_special(post_num):
@@ -119,7 +145,7 @@ def _load_single_post_special(post_num):
     return message
 
 
-def _parse_post(post, linked_dd):
+def _parse_post(post, linked_item, dev_diary=True):
     u_dt = post.find_all(class_="u-dt")[0]
     date = dateparser.parse(u_dt.attrs['datetime'])
     post = post.find(class_="message-userContent")
@@ -132,7 +158,10 @@ def _parse_post(post, linked_dd):
             post.attrs['data-lb-id'])
     dev_post = post.find(class_='bbWrapper')
     contents = dev_post.encode_contents()
-    return DevDiaryComment(linked_dd, contents, author, source, date)
+    if dev_diary:
+        return DevDiaryComment(linked_item, contents, author, source, date)
+    else:
+        return NonDiaryDevComment(linked_item, contents, author, source, date)
 
 
 def standard_substitutions(diary_name, input_text):
@@ -172,6 +201,12 @@ def standard_substitutions(diary_name, input_text):
 
     return txt
 
+
+class PdxThread(object):
+    def __init__(self, title, url):
+        self.title = title
+        self.url = url
+
 class DevDiary(DevEntry):
     def __init__(self, title, body_html, source, date):
         self.title = title
@@ -201,9 +236,10 @@ class DevDiaryComment(DevEntry):
 
 
 class NonDiaryDevComment(DevEntry):
-    def __init__(self, thread_title, body_html, author, source, date):
-        self.thread_title = thread_tital
-        self.body_md = standard_substitutions(self.linked_dd.title, markdownify(body_html))
+    def __init__(self, thread, body_html, author, source, date):
+        self.thread_title = thread.title
+        self.thread_url = thread.url
+        self.body_md = standard_substitutions(self.thread_title, markdownify(body_html))
         self.body_md = re.sub("Click to expand...", "", self.body_md)
         self.author = author
         self.source = source
