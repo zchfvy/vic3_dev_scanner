@@ -1,11 +1,14 @@
 import os
 
 import sources.dev_diary as dd
+import sources.discord_dynamic as disc
 import markdown
 
 from util import get_output_dir
 
-all_items = dd.grab_all()
+all_items = []
+all_items.extend(dd.grab_all())
+all_items.extend(disc.grab_all())
 
 out_fname = os.path.join(get_output_dir(), 'index.html')
 out_file = open(out_fname, 'w')

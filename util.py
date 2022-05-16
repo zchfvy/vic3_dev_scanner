@@ -94,13 +94,17 @@ def ocr_image(path):
         res.append(text)
     return ' '.join(res)
 
-def download_image(url, subdir_name):
+def download_image(url, subdir_name, uniq_name=False):
     """Safely put a web image into a local directory and return it's path.
     """
     dest_dir = os.path.join(get_output_dir(), "images", subdir_name)
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     im_name = os.path.basename(urlparse(url).path)
+    if uniq_name:
+        h = hashlib.blake2b(digest_size=8)
+        h.update(url.encode('utf-8'))
+        im_name = h.hexdigest() + '-' + im_name
     im_path = os.path.join(dest_dir, im_name)
     if not os.path.exists(im_path):
         log.debug(f"Downloading image {url}")
