@@ -4,6 +4,7 @@ import requests
 import json
 import shutil
 import logging
+import datetime
 from urllib.parse import urlparse
 
 logging.basicConfig()
@@ -16,6 +17,8 @@ import numpy as np
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return
         if isinstance(obj, np.integer):
             return int(obj)
         if isinstance(obj, np.floating):
@@ -97,6 +100,9 @@ def ocr_image(path):
 def download_image(url, subdir_name, uniq_name=False):
     """Safely put a web image into a local directory and return it's path.
     """
+    if url.startswith("https://tenor.com"):
+        # Tenor images crash the OCR, and aren't important anyways
+        return None, None, "[tenor meme]"
     dest_dir = os.path.join(get_output_dir(), "images", subdir_name)
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
