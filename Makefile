@@ -17,7 +17,7 @@ clean_cache:
 clean_output:
 	rm -rf output
 
-publish_gh: build
+publish_gh:
 	git checkout gh_pages
 	cp -r ./output/* ./
 	git add index.html images thumbs
