@@ -302,6 +302,11 @@ def _parse_post(post, name):
 def _login_discord():
     driver = _get_selenium()
     driver.get("https://discord.com/channels/831406775416782868/963944118625644605")
+    if "Do you want to open this link in your Discord app?" in driver.page_source:
+        continue_in_browser = driver.find_element(By.CSS_SELECTOR, 'button[class*="linkButton-"]')
+        log.info("Selecting 'Continue in browser'")
+        continue_in_browser.click()
+        time.sleep(2)
     try:
         while "We're so excited to see you again!" in driver.page_source:
             time.sleep(1)
