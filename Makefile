@@ -25,3 +25,10 @@ publish_gh: build
 	git commit -m "Update gh_pages"
 	git push
 	git checkout master
+
+
+publish_cp:
+
+
+output.zip: build
+	zip -r output.zip output/*
