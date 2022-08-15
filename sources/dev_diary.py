@@ -21,7 +21,7 @@ DD_INDEX = "/forum/threads/victoria-3-dev-diary-index.1481698/"
 ALL_DEV_POSTS = "/forum/forums/victoria-3.1095/?prdxPsDevPostsOnly=1"
 
 def grab_all():
-    index_text = get_page_cached(FORUMS_BASE + DD_INDEX)
+    index_text = get_page_cached(FORUMS_BASE + DD_INDEX, True)
     dd_re = re.compile(
             "https://forum.paradoxplaza.com/forum/developer-diary/[^/]+/")
     matches = re.findall(dd_re, index_text)

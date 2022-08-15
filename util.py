@@ -41,13 +41,14 @@ def get_output_dir():
 
 
 def get_page_cached(url, force_refresh=False):
-    if not force_refresh:
-        cache_dir = get_cache_dir('web')
+    cache_dir = get_cache_dir('web')
 
-        h = hashlib.sha256()
-        h.update(url.encode('utf-8'))
-        cache_hash = h.hexdigest()
-        cache_file = os.path.join(cache_dir, cache_hash)
+    h = hashlib.sha256()
+    h.update(url.encode('utf-8'))
+    cache_hash = h.hexdigest()
+    cache_file = os.path.join(cache_dir, cache_hash)
+
+    if not force_refresh:
         if os.path.exists(cache_file):
             with open(cache_file, 'r') as f:
                 return f.read()
